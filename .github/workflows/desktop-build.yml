@@ -167,15 +167,5 @@ jobs:
           name: DevToolbox v${{ env.RELEASE_VERSION }}
           draft: false
           prerelease: ${{ env.IS_PRERELEASE }}
-          files: |
-            release-artifacts/**/DevToolbox-*.dmg
-            release-artifacts/**/DevToolbox-*.msi
-            release-artifacts/**/DevToolbox-*.exe
-            release-artifacts/**/DevToolbox-*.deb
-            release-artifacts/**/DevToolbox-*.AppImage
-            release-artifacts/**/DevToolbox-*.rpm
-            release-artifacts/**/DevToolbox-*.tar.gz
-            release-artifacts/**/DevToolbox-*.zip
-            release-artifacts/**/DevToolbox-*.sig
+          files: release-artifacts/**/*
           generate_release_notes: true
-          fail_on_unmatched_files: true
