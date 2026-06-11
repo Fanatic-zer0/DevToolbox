@@ -28,10 +28,7 @@ jobs:
           - platform: ubuntu-22.04
             os_id: linux
             arch_hint: amd64
-          - platform: macos-13
-            os_id: macos
-            arch_hint: amd64
-          - platform: macos-14
+          - platform: macos-latest
             os_id: macos
             arch_hint: arm64
           - platform: windows-latest
