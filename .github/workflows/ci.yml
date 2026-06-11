@@ -34,10 +34,7 @@ jobs:
       - name: Show app version
         run: node -p "require('./package.json').version"
 
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Run lint
+      - name: Type check and lint
         run: npm run lint
 
       - name: Build web app
