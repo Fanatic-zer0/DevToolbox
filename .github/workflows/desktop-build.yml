@@ -19,6 +19,8 @@ jobs:
   tauri-build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -43,7 +45,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Setup Rust toolchain
@@ -90,8 +92,46 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
+          OS_ID="${{ matrix.os_id }}"
+          ARCH="${{ steps.meta.outputs.arch }}"
+          found=0
 
-          mapfile -t files < <(find src-tauri/target/release/bundle -type f \( \
+          while IFS= read -r -d '' file; do
+            found=1
+            base_name="$(basename "$file")"
+
+            case "$base_name" in
+              *.sig)
+                # Preserve the full extension chain (e.g. .msi.zip.sig) with DevToolbox- prefix
+                ext="${base_name#*.}"
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.${ext}"
+                ;;
+              *.tar.gz)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.tar.gz"
+                ;;
+              *.AppImage)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.AppImage"
+                ;;
+              *.dmg)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.dmg"
+                ;;
+              *.msi)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.msi"
+                ;;
+              *.exe)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.exe"
+                ;;
+              *.deb)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.deb"
+                ;;
+              *.rpm)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.rpm"
+                ;;
+              *.zip)
+                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.zip"
+                ;;
+            esac
+          done < <(find src-tauri/target/release/bundle -type f \( \
             -name "*.dmg" -o \
             -name "*.msi" -o \
             -name "*.exe" -o \
@@ -101,46 +141,12 @@ jobs:
             -name "*.tar.gz" -o \
             -name "*.zip" -o \
             -name "*.sig" \
-          \))
+          \) -print0)
 
-          if [[ ${#files[@]} -eq 0 ]]; then
+          if [[ "$found" -eq 0 ]]; then
             echo "No package files found in bundle output"
             exit 1
           fi
-
-          for file in "${files[@]}"; do
-            base_name="$(basename "$file")"
-
-            case "$base_name" in
-              *.sig)
-                cp "$file" "release-assets/$base_name"
-                ;;
-              *.tar.gz)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.tar.gz"
-                ;;
-              *.AppImage)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.AppImage"
-                ;;
-              *.dmg)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.dmg"
-                ;;
-              *.msi)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.msi"
-                ;;
-              *.exe)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.exe"
-                ;;
-              *.deb)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.deb"
-                ;;
-              *.rpm)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.rpm"
-                ;;
-              *.zip)
-                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.zip"
-                ;;
-            esac
-          done
 
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v5
