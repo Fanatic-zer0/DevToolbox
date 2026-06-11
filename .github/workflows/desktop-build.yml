@@ -4,10 +4,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
+  # Only run on version tags (e.g. v1.2.3, v2.0.0-beta.1) or manual trigger.
+  # Do NOT run on every main push — macOS/Windows runners are expensive.
   workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   tauri-build:
-    name: Build (${{ matrix.platform }})
+    name: Build (${{ matrix.platform }} / ${{ matrix.arch_hint }})
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: read
@@ -28,9 +28,14 @@ jobs:
           - platform: ubuntu-22.04
             os_id: linux
             arch_hint: amd64
+          # Apple Silicon (M1/M2/M3)
           - platform: macos-latest
             os_id: macos
             arch_hint: arm64
+          # Intel Mac — keep until macOS 13 runners are retired
+          - platform: macos-13
+            os_id: macos
+            arch_hint: x86_64
           - platform: windows-latest
             os_id: windows
             arch_hint: amd64
@@ -97,37 +102,13 @@ jobs:
             found=1
             base_name="$(basename "$file")"
 
-            case "$base_name" in
-              *.sig)
-                # Preserve the full extension chain (e.g. .msi.zip.sig) with DevToolbox- prefix
-                ext="${base_name#*.}"
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.${ext}"
-                ;;
-              *.tar.gz)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.tar.gz"
-                ;;
-              *.AppImage)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.AppImage"
-                ;;
-              *.dmg)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.dmg"
-                ;;
-              *.msi)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.msi"
-                ;;
-              *.exe)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.exe"
-                ;;
-              *.deb)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.deb"
-                ;;
-              *.rpm)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.rpm"
-                ;;
-              *.zip)
-                cp "$file" "release-assets/DevToolbox-${OS_ID}-${ARCH}.zip"
-                ;;
-            esac
+            # Derive the full compound extension after the first dot (e.g. "msi.zip.sig", "tar.gz")
+            # This correctly handles *.msi.zip.sig and similar Tauri updater artifacts.
+            ext="${base_name#*.}"
+
+            dest="release-assets/DevToolbox-${OS_ID}-${ARCH}.${ext}"
+            echo "Copying $file -> $dest"
+            cp "$file" "$dest"
           done < <(find src-tauri/target/release/bundle -type f \( \
             -name "*.dmg" -o \
             -name "*.msi" -o \
@@ -141,9 +122,12 @@ jobs:
           \) -print0)
 
           if [[ "$found" -eq 0 ]]; then
-            echo "No package files found in bundle output"
+            echo "::error::No package files found in src-tauri/target/release/bundle"
             exit 1
           fi
+
+          echo "--- release-assets contents ---"
+          ls -lh release-assets/
 
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v5
@@ -162,9 +146,18 @@ jobs:
       contents: write
 
     steps:
-      - name: Resolve release version
+      - name: Resolve release metadata
         run: |
-          echo "RELEASE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          # Mark as pre-release if the version contains a pre-release identifier
+          # e.g. v1.0.0-alpha.1, v2.0.0-beta.2, v1.5.0-rc.1
+          if [[ "$VERSION" =~ -(alpha|beta|rc)\. ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v5
@@ -176,6 +169,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: DevToolbox v${{ env.RELEASE_VERSION }}
+          draft: false
+          prerelease: ${{ env.IS_PRERELEASE }}
           files: |
             release-artifacts/**/DevToolbox-*.dmg
             release-artifacts/**/DevToolbox-*.msi
@@ -187,3 +182,4 @@ jobs:
             release-artifacts/**/DevToolbox-*.zip
             release-artifacts/**/DevToolbox-*.sig
           generate_release_notes: true
+          fail_on_unmatched_files: true
