@@ -32,10 +32,6 @@ jobs:
           - platform: macos-latest
             os_id: macos
             arch_hint: arm64
-          # Intel Mac — keep until macOS 13 runners are retired
-          - platform: macos-13
-            os_id: macos
-            arch_hint: x86_64
           - platform: windows-latest
             os_id: windows
             arch_hint: amd64
