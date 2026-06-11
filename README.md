@@ -15,6 +15,10 @@ A fast, offline-first developer utility app with 48+ tools. Runs entirely in the
 
 ---
 
+<img width="1652" height="859" alt="image" src="https://github.com/user-attachments/assets/986729ab-5a31-41a9-8d56-9051e5b8fbab" />
+
+
+
 ## Tool Categories
 
 ### Generators & Encoders (10 tools)
