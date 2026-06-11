@@ -22,10 +22,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - ubuntu-22.04
-          - macos-latest
-          - windows-latest
+        include:
+          - platform: ubuntu-22.04
+            os_id: linux
+            arch_hint: amd64
+          - platform: macos-13
+            os_id: macos
+            arch_hint: amd64
+          - platform: macos-14
+            os_id: macos
+            arch_hint: arm64
+          - platform: windows-latest
+            os_id: windows
+            arch_hint: amd64
 
     steps:
       - name: Checkout
@@ -62,20 +71,82 @@ jobs:
       - name: Build desktop app
         run: npm run tauri:build
 
+      - name: Resolve artifact metadata
+        id: meta
+        shell: bash
+        run: |
+          arch="${{ matrix.arch_hint }}"
+          if [[ -z "$arch" ]]; then
+            arch="${RUNNER_ARCH,,}"
+          fi
+          if [[ "$arch" == "x64" ]]; then
+            arch="amd64"
+          fi
+          echo "arch=$arch" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=DevToolbox-${{ matrix.os_id }}-$arch" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+
+          mapfile -t files < <(find src-tauri/target/release/bundle -type f \( \
+            -name "*.dmg" -o \
+            -name "*.msi" -o \
+            -name "*.exe" -o \
+            -name "*.deb" -o \
+            -name "*.AppImage" -o \
+            -name "*.rpm" -o \
+            -name "*.tar.gz" -o \
+            -name "*.zip" -o \
+            -name "*.sig" \
+          \))
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No package files found in bundle output"
+            exit 1
+          fi
+
+          for file in "${files[@]}"; do
+            base_name="$(basename "$file")"
+
+            case "$base_name" in
+              *.sig)
+                cp "$file" "release-assets/$base_name"
+                ;;
+              *.tar.gz)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.tar.gz"
+                ;;
+              *.AppImage)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.AppImage"
+                ;;
+              *.dmg)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.dmg"
+                ;;
+              *.msi)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.msi"
+                ;;
+              *.exe)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.exe"
+                ;;
+              *.deb)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.deb"
+                ;;
+              *.rpm)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.rpm"
+                ;;
+              *.zip)
+                cp "$file" "release-assets/DevToolbox-${{ matrix.os_id }}-${{ steps.meta.outputs.arch }}.zip"
+                ;;
+            esac
+          done
+
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: tauri-bundles-${{ matrix.platform }}
-          path: |
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.exe
-            src-tauri/target/release/bundle/**/*.deb
-            src-tauri/target/release/bundle/**/*.AppImage
-            src-tauri/target/release/bundle/**/*.rpm
-            src-tauri/target/release/bundle/**/*.tar.gz
-            src-tauri/target/release/bundle/**/*.zip
-            src-tauri/target/release/bundle/**/*.sig
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: release-assets/**/*
           if-no-files-found: error
           retention-days: 14
 
@@ -103,13 +174,13 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: DevToolbox v${{ env.RELEASE_VERSION }}
           files: |
-            release-artifacts/**/*.dmg
-            release-artifacts/**/*.msi
-            release-artifacts/**/*.exe
-            release-artifacts/**/*.deb
-            release-artifacts/**/*.AppImage
-            release-artifacts/**/*.rpm
-            release-artifacts/**/*.tar.gz
-            release-artifacts/**/*.zip
-            release-artifacts/**/*.sig
+            release-artifacts/**/DevToolbox-*.dmg
+            release-artifacts/**/DevToolbox-*.msi
+            release-artifacts/**/DevToolbox-*.exe
+            release-artifacts/**/DevToolbox-*.deb
+            release-artifacts/**/DevToolbox-*.AppImage
+            release-artifacts/**/DevToolbox-*.rpm
+            release-artifacts/**/DevToolbox-*.tar.gz
+            release-artifacts/**/DevToolbox-*.zip
+            release-artifacts/**/DevToolbox-*.sig
           generate_release_notes: true
