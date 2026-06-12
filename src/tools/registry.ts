@@ -216,7 +216,7 @@ const tools: ToolDefinition[] = [
     id: 'helm-values', title: 'Helm Values Helper', description: 'Inspect and diff Helm values.yaml files — flatten keys, inspect types, compare releases',
     category: 'devops', keywords: ['helm', 'values', 'yaml', 'kubernetes', 'k8s', 'chart', 'diff', 'inspect'],
     inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
-    load: () => import('./devops/helm-values/HelmValuesTool'),
+    load: () => import('./devops/helm-values/HelmValuesToool'),
   },
   {
     id: 'k8s-validator', title: 'K8s Manifest Validator', description: 'Lint Kubernetes YAML manifests for required fields and best practices',
