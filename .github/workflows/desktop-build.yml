@@ -71,6 +71,20 @@ jobs:
       - name: Build desktop app
         run: npm run tauri:build
 
+      - name: Ad-hoc codesign macOS bundle (prevents "damaged" Gatekeeper error)
+        if: matrix.os_id == 'macos'
+        run: |
+          APP_PATH="$(find src-tauri/target/release/bundle/macos -name '*.app' -maxdepth 1 | head -1)"
+          if [[ -n "$APP_PATH" ]]; then
+            codesign --force --deep --sign - "$APP_PATH"
+            echo "Signed: $APP_PATH"
+          fi
+          DMG_PATH="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -maxdepth 1 | head -1)"
+          if [[ -n "$DMG_PATH" ]]; then
+            codesign --force --sign - "$DMG_PATH"
+            echo "Signed: $DMG_PATH"
+          fi
+
       - name: Resolve artifact metadata
         id: meta
         shell: bash

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Zap, ArrowLeftRight, Search, Code2, Server, Pin, Clock, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react';
+import { Zap, ArrowLeftRight, Search, Code2, Server, Network, Pin, Clock, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useAppStore } from '../../store';
 import { toolsByCategory, categoryMeta, toolRegistry } from '../../tools/registry';
@@ -12,6 +12,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   inspect: Search,
   formatters: Code2,
   devops: Server,
+  networking: Network,
 };
 
 function ToolItem({ tool, onClick }: { tool: ToolDefinition; onClick: () => void }) {
@@ -124,7 +125,7 @@ export default function Sidebar() {
         )}
 
         {/* All categories */}
-        {['generators', 'converters', 'inspect', 'formatters', 'devops'].map((cat) => (
+        {['generators', 'converters', 'inspect', 'formatters', 'devops', 'networking'].map((cat) => (
           <CategorySection key={cat} category={cat} />
         ))}
       </div>

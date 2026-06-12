@@ -1,4 +1,4 @@
-export type ToolCategory = 'generators' | 'converters' | 'inspect' | 'formatters' | 'devops';
+export type ToolCategory = 'generators' | 'converters' | 'inspect' | 'formatters' | 'devops' | 'networking';
 
 export interface DetectionInput {
   text: string;
