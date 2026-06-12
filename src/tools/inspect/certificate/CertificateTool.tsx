@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as forge from 'node-forge';
-import { CheckCircle, XCircle, Copy, Download, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Copy, Download, Loader2, Terminal } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,36 @@ function CopyBtn({ text, label = 'Copy' }: { text: string; label?: string }) {
     <button className="btn btn-ghost btn-sm flex items-center gap-1" onClick={go}>
       <Copy size={11} />{copied ? 'Copied!' : label}
     </button>
+  );
+}
+
+function CliBlock({ commands }: { commands: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { await navigator.clipboard.writeText(commands); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+      <button
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors"
+        style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="flex items-center gap-2"><Terminal size={12} />CLI equivalent (openssl)</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{open ? '▲ hide' : '▼ show'}</span>
+      </button>
+      {open && (
+        <div className="relative" style={{ background: '#0d1117' }}>
+          <button
+            className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded text-xs"
+            style={{ background: 'rgba(255,255,255,0.08)', color: '#8b949e' }}
+            onClick={copy}
+          >
+            <Copy size={10} />{copied ? 'Copied!' : 'Copy'}
+          </button>
+          <pre className="p-3 pr-16 text-xs font-mono overflow-x-auto" style={{ color: '#e6edf3', margin: 0, lineHeight: 1.6 }}>{commands}</pre>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -524,6 +554,20 @@ function GenCsrTab() {
       <div className="space-y-3">
         <PemOutput label="Certificate Signing Request (CSR)" pem={csrPem} filename="request.csr" />
         <PemOutput label="Private Key (keep secret!)" pem={keyPem} filename="private.key" />
+        <CliBlock commands={(() => {
+          const cnVal = cn.trim() || 'example.com';
+          const subj: string[] = [`/CN=${cnVal}`];
+          if (org.trim()) subj.push(`O=${org.trim()}`);
+          if (ou.trim()) subj.push(`OU=${ou.trim()}`);
+          if (country.trim()) subj.push(`C=${country.trim()}`);
+          if (state.trim()) subj.push(`ST=${state.trim()}`);
+          if (locality.trim()) subj.push(`L=${locality.trim()}`);
+          const subjStr = subj.join('/');
+          const sanList = san.split(',').map((s) => s.trim()).filter(Boolean);
+          const sanStr = sanList.map((s) => (/^\d+\.\d+\.\d+\.\d+$/.test(s) ? `IP:${s}` : `DNS:${s}`)).join(',');
+          const addExt = sanStr ? ` \\\n  -addext "subjectAltName=${sanStr}"` : '';
+          return `# Generate private key\nopenssl genrsa -out private.key ${keySize}\n\n# Create CSR\nopenssl req -new \\\n  -key private.key \\\n  -subj "${subjStr}"${addExt} \\\n  -out request.csr\n\n# Verify CSR\nopenssl req -in request.csr -noout -text`;
+        })()} />
       </div>
     </div>
   );
@@ -780,6 +824,32 @@ function GenCertTab() {
       <div className="space-y-3">
         <PemOutput label="Certificate" pem={certOut} filename="certificate.crt" />
         {keyOut && <PemOutput label="Private Key (keep secret!)" pem={keyOut} filename="private.key" />}
+        <CliBlock commands={(() => {
+          const cnVal = cn.trim() || (certType === 'root-ca' ? 'My Root CA' : certType === 'intermediate-ca' ? 'Intermediate CA' : 'example.com');
+          const subj: string[] = [`/CN=${cnVal}`];
+          if (org.trim()) subj.push(`O=${org.trim()}`);
+          if (ou.trim()) subj.push(`OU=${ou.trim()}`);
+          if (country.trim()) subj.push(`C=${country.trim()}`);
+          if (state.trim()) subj.push(`ST=${state.trim()}`);
+          const subjStr = subj.join('/');
+          const sanList = san.split(',').map((s) => s.trim()).filter(Boolean);
+          const sanStr = sanList.map((s) => (/^\d+\.\d+\.\d+\.\d+$/.test(s) ? `IP:${s}` : `DNS:${s}`)).join(',');
+          const addSan = sanStr ? `\n  -addext "subjectAltName=${sanStr}" \\` : '';
+          const d = validDays || '365';
+          if (certType === 'self-signed') {
+            return `openssl req -x509 \\\n  -newkey rsa:${keySize} \\\n  -keyout private.key \\\n  -out certificate.crt \\\n  -days ${d} \\\n  -nodes \\${addSan}\n  -subj "${subjStr}"\n\n# Verify:\nopenssl x509 -in certificate.crt -noout -text`;
+          }
+          if (certType === 'root-ca') {
+            return `openssl req -x509 \\\n  -newkey rsa:${keySize} \\\n  -keyout ca.key \\\n  -out ca.crt \\\n  -days ${d} \\\n  -nodes \\\n  -subj "${subjStr}" \\\n  -addext "basicConstraints=critical,CA:TRUE" \\\n  -addext "keyUsage=critical,keyCertSign,cRLSign"\n\n# Verify:\nopenssl x509 -in ca.crt -noout -text`;
+          }
+          if (certType === 'intermediate-ca') {
+            return `# Step 1: Generate intermediate key and CSR\nopenssl req -newkey rsa:${keySize} \\\n  -keyout intermediate.key \\\n  -out intermediate.csr \\\n  -nodes \\\n  -subj "${subjStr}"\n\n# Step 2: Sign with Root CA\nopenssl x509 -req \\\n  -in intermediate.csr \\\n  -CA root-ca.crt \\\n  -CAkey root-ca.key \\\n  -CAcreateserial \\\n  -out intermediate.crt \\\n  -days ${d} \\\n  -sha256 \\\n  -extfile <(printf "basicConstraints=critical,CA:TRUE,pathlen:0\\nkeyUsage=critical,keyCertSign,cRLSign")`;
+          }
+          if (certType === 'ca-signed') {
+            return `openssl x509 -req \\\n  -in request.csr \\\n  -CA ca.crt \\\n  -CAkey ca.key \\\n  -CAcreateserial \\\n  -out certificate.crt \\\n  -days ${d} \\\n  -sha256\n\n# Verify:\nopenssl x509 -in certificate.crt -noout -text`;
+          }
+          return '';
+        })()} />
       </div>
     </div>
   );
@@ -868,14 +938,14 @@ function ToPfxTab() {
         )}
         {ready && <span className="text-xs" style={{ color: 'var(--success)' }}>✓ PFX ready — {pfxBytes?.length} bytes</span>}
       </div>
-      {ready && (
-        <div className="rounded-lg p-3 text-xs" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Verify with OpenSSL:</p>
-          <code className="font-mono" style={{ color: 'var(--accent)' }}>
-            openssl pkcs12 -in {friendlyName.trim() || 'certificate'}.pfx -noout -info
-          </code>
-        </div>
-      )}
+      <CliBlock commands={(() => {
+        const outName = (friendlyName.trim() || 'certificate') + '.pfx';
+        const hasChain = chainPem.trim() !== '';
+        const chainPart = hasChain ? `\n  -certfile chain.pem \\` : '';
+        const namePart = friendlyName.trim() ? `\n  -name "${friendlyName.trim()}" \\` : '';
+        const passPart = password ? `\n  -passout pass:yourpassword` : `\n  -passout pass:`;
+        return `# Bundle cert + key into PFX\nopenssl pkcs12 -export \\\n  -in certificate.crt \\\n  -inkey private.key \\${chainPart}\n  -out ${outName} \\${namePart}${passPart}\n\n# Verify PFX contents:\nopenssl pkcs12 -in ${outName} -noout -info`;
+      })()} />
     </div>
   );
 }

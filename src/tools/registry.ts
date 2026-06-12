@@ -213,6 +213,12 @@ const tools: ToolDefinition[] = [
 
   // ─── DEVOPS & INFRASTRUCTURE ─────────────────────────────────
   {
+    id: 'helm-values', title: 'Helm Values Helper', description: 'Inspect and diff Helm values.yaml files — flatten keys, inspect types, compare releases',
+    category: 'devops', keywords: ['helm', 'values', 'yaml', 'kubernetes', 'k8s', 'chart', 'diff', 'inspect'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./devops/helm-values/HelmValuesToool'),
+  },
+  {
     id: 'k8s-validator', title: 'K8s Manifest Validator', description: 'Lint Kubernetes YAML manifests for required fields and best practices',
     category: 'devops', keywords: ['kubernetes', 'k8s', 'yaml', 'manifest', 'lint', 'validate', 'deployment', 'pod'],
     inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
@@ -229,6 +235,58 @@ const tools: ToolDefinition[] = [
     category: 'devops', keywords: ['kubectl', 'kubernetes', 'k8s', 'command', 'cli', 'builder', 'logs', 'exec'],
     inputKind: 'text', outputKind: 'text', defaultOptions: {},
     load: () => import('./devops/kubectl-builder/KubectlBuilderTool'),
+  },
+
+  // ─── NETWORKING ──────────────────────────────────────────────
+  {
+    id: 'api-builder', title: 'API Request Builder',
+    description: 'Build REST, SOAP & GraphQL requests with headers, auth, and body — generates curl, fetch, axios, Python, Go and more',
+    category: 'networking',
+    keywords: ['api', 'rest', 'soap', 'graphql', 'curl', 'http', 'request', 'builder', 'fetch', 'axios', 'postman', 'headers', 'auth', 'bearer', 'token', 'json', 'xml'],
+    inputKind: 'text', outputKind: 'text', defaultOptions: {},
+    load: () => import('./networking/api-builder/ApiBuilderTool'),
+  },
+  {
+    id: 'cidr-calculator', title: 'CIDR / Subnet Calculator', description: 'Calculate network address, broadcast, usable range, host count and subnetting for IPv4 and IPv6',
+    category: 'networking', keywords: ['cidr', 'subnet', 'network', 'ip', 'ipv4', 'ipv6', 'mask', 'broadcast', 'subnetting'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/cidr/CidrTool'),
+  },
+  {
+    id: 'ip-inspector', title: 'IP Address Inspector', description: 'Classify any IPv4 or IPv6 address — scope, RFC category, binary and hex representations',
+    category: 'networking', keywords: ['ip', 'ipv4', 'ipv6', 'address', 'inspect', 'private', 'public', 'rfc', 'classify', 'loopback'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/ip-inspector/IpInspectorTool'),
+  },
+  {
+    id: 'dns-lookup', title: 'DNS Record Lookup', description: 'Query DNS records via Cloudflare DoH — A, AAAA, MX, TXT, CNAME, NS, SOA and more',
+    category: 'networking', keywords: ['dns', 'lookup', 'domain', 'record', 'a', 'aaaa', 'mx', 'txt', 'cname', 'ns', 'soa'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/dns-lookup/DnsLookupTool'),
+  },
+  {
+    id: 'http-headers', title: 'HTTP Header Inspector', description: 'Fetch and inspect HTTP response headers — security grading, cache, CORS, and server info',
+    category: 'networking', keywords: ['http', 'headers', 'inspect', 'security', 'hsts', 'csp', 'cors', 'cache', 'response'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/http-headers/HttpHeadersTool'),
+  },
+  {
+    id: 'port-reference', title: 'Port Reference', description: 'Well-known and commonly used TCP/UDP port numbers — search by port number or service name',
+    category: 'networking', keywords: ['port', 'tcp', 'udp', 'service', 'well-known', 'reference', 'database', 'lookup'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/port-reference/PortReferenceTool'),
+  },
+  {
+    id: 'ping-latency', title: 'Ping / Latency Test', description: 'Measure HTTP round-trip latency to any URL — min, avg, max, jitter and packet loss',
+    category: 'networking', keywords: ['ping', 'latency', 'rtt', 'http', 'test', 'measure', 'jitter', 'loss'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/ping/PingTool'),
+  },
+  {
+    id: 'tcp-tester', title: 'TCP Connection Tester', description: 'Test if a host:port is reachable — replaces nc -zv host port or telnet host port',
+    category: 'networking', keywords: ['tcp', 'port', 'connection', 'test', 'reachable', 'nc', 'telnet', 'firewall'],
+    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
+    load: () => import('./networking/tcp-test/TcpTestTool'),
   },
 
   // ─── FORMATTERS ──────────────────────────────────────────────
@@ -299,9 +357,10 @@ export const toolsByCategory = tools.reduce(
 );
 
 export const categoryMeta: Record<string, { label: string; icon: string }> = {
-  generators: { label: 'Generators & Encoders', icon: 'Zap' },
-  converters:  { label: 'Converters & Parsers',  icon: 'ArrowLeftRight' },
-  inspect:     { label: 'Inspect & Preview',      icon: 'Search' },
-  formatters:  { label: 'Format & Beautify',      icon: 'Code2' },
-  devops:      { label: 'DevOps & Infrastructure', icon: 'Server' },
+  generators:  { label: 'Generators & Encoders',   icon: 'Zap' },
+  converters:  { label: 'Converters & Parsers',    icon: 'ArrowLeftRight' },
+  inspect:     { label: 'Inspect & Preview',        icon: 'Search' },
+  formatters:  { label: 'Format & Beautify',        icon: 'Code2' },
+  devops:      { label: 'DevOps & Infrastructure',  icon: 'Server' },
+  networking:  { label: 'Networking & Security',    icon: 'Network' },
 };
