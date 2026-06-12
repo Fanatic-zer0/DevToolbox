@@ -131,6 +131,16 @@ jobs:
           fi
 
           if [[ -n "$DMG_PATH" ]]; then
+            TMP_DMG="$RUNNER_TEMP/$(basename "$DMG_PATH")"
+            rm -f "$TMP_DMG"
+            hdiutil create \
+              -ov \
+              -format UDZO \
+              -volname "DevToolbox" \
+              -srcfolder "$APP_PATH" \
+              "$TMP_DMG"
+            mv "$TMP_DMG" "$DMG_PATH"
+
             xcrun notarytool submit "$DMG_PATH" \
               --apple-id "$APPLE_ID" \
               --team-id "$APPLE_TEAM_ID" \
