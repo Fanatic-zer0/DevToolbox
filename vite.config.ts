@@ -13,13 +13,41 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          crypto: ['openpgp'],
-          editor: ['@codemirror/state', '@codemirror/view', 'codemirror'],
-          yaml: ['js-yaml'],
-          sql: ['sql-formatter'],
-          diff: ['diff'],
-          qr: ['qrcode', 'jsqr'],
-          forge: ['node-forge'],
+          // Core React runtime — always needed
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // State / search utilities
+          'vendor-utils': ['zustand', 'fuse.js', 'clsx', 'tailwind-merge'],
+          // Icon library (large at ~2 MB unminified)
+          'vendor-icons': ['lucide-react'],
+          // All CodeMirror packages together
+          'editor': [
+            'codemirror',
+            '@codemirror/state',
+            '@codemirror/view',
+            '@codemirror/commands',
+            '@codemirror/language',
+            '@codemirror/theme-one-dark',
+            '@codemirror/lang-javascript',
+            '@codemirror/lang-json',
+            '@codemirror/lang-html',
+            '@codemirror/lang-css',
+            '@codemirror/lang-xml',
+            '@codemirror/lang-sql',
+            '@codemirror/lang-markdown',
+          ],
+          // Crypto / PKI — heaviest chunks
+          'crypto-pgp':   ['openpgp'],
+          'crypto-forge':  ['node-forge'],
+          'crypto-js':    ['crypto-js'],
+          // Data / serialisation
+          'lib-yaml':     ['js-yaml'],
+          'lib-sql':      ['sql-formatter'],
+          'lib-diff':     ['diff'],
+          'lib-markdown': ['marked', 'cronstrue'],
+          // QR
+          'lib-qr':       ['qrcode', 'jsqr'],
+          // IDs
+          'lib-ids':      ['uuid', 'ulidx'],
         },
       },
     },

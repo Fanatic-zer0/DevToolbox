@@ -75,6 +75,7 @@ jobs:
         if: matrix.os_id == 'macos'
         shell: bash
         env:
+          IS_RELEASE_BUILD: ${{ startsWith(github.ref, 'refs/tags/v') }}
           MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -94,6 +95,11 @@ jobs:
           fi
 
           if [[ -z "${MACOS_CERTIFICATE_P12_BASE64:-}" || -z "${MACOS_CERTIFICATE_PASSWORD:-}" || -z "${APPLE_ID:-}" || -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" || -z "${APPLE_TEAM_ID:-}" ]]; then
+            if [[ "${IS_RELEASE_BUILD:-false}" == "true" ]]; then
+              echo "::error::macOS release builds require notarization secrets; refusing to publish an ad-hoc signed DMG."
+              exit 1
+            fi
+
             echo "macOS signing secrets are not configured; using ad-hoc signing only."
             if [[ -n "$APP_PATH" ]]; then
               codesign --force --deep --sign - "$APP_PATH"
