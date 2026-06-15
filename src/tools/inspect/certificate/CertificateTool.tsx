@@ -162,14 +162,43 @@ function DecodeTab() {
         if (n.type === 2 && n.value) san.push(`DNS: ${n.value}`);
         else if (n.type === 7 && n.ip) san.push(`IP: ${n.ip}`);
       }
-      const pub = cert.publicKey as forge.pki.rsa.PublicKey;
+      // Detect key type without assuming RSA
+      let keyType = 'Unknown';
+      let keyBits = 0;
+      const pubKeyInfo = (cert as any).publicKey;
+      const sigOid = cert.siginfo.algorithmOid;
+      // EC / ECDSA OIDs
+      const ecOids = ['1.2.840.10045.2.1'];
+      const edOids = ['1.3.101.112', '1.3.101.113']; // Ed25519, Ed448
+      try {
+        const rsaPub = cert.publicKey as forge.pki.rsa.PublicKey;
+        if (rsaPub.n) { keyType = 'RSA'; keyBits = rsaPub.n.bitLength(); }
+      } catch {
+        // not RSA — determine from OID
+        const spkiAsn1 = forge.pki.publicKeyToAsn1(pubKeyInfo);
+        const algOid: string = (spkiAsn1 as any).value?.[0]?.value?.[0]?.value ?? sigOid;
+        if (ecOids.includes(algOid) || sigOid.startsWith('1.2.840.10045')) {
+          keyType = 'EC (ECDSA)';
+          // curve OID is the second param in algorithm sequence
+          const curveOid: string = (spkiAsn1 as any).value?.[0]?.value?.[1]?.value ?? '';
+          const curveMap: Record<string, number> = {
+            '1.2.840.10045.3.1.7': 256,   // P-256
+            '1.3.132.0.34': 384,            // P-384
+            '1.3.132.0.35': 521,            // P-521
+          };
+          keyBits = curveMap[curveOid] ?? 0;
+        } else if (edOids.includes(algOid)) {
+          keyType = algOid === '1.3.101.112' ? 'Ed25519' : 'Ed448';
+          keyBits = algOid === '1.3.101.112' ? 256 : 448;
+        }
+      }
       setInfo({
         subject: attrMap(cert.subject.attributes), issuer: attrMap(cert.issuer.attributes),
         serial: cert.serialNumber, notBefore: cert.validity.notBefore.toISOString(),
         notAfter: cert.validity.notAfter.toISOString(), san,
         fingerprints: { sha1: certFingerprint(cert, 'sha1'), sha256: certFingerprint(cert, 'sha256') },
-        publicKey: { type: 'RSA', bits: pub.n?.bitLength() ?? 0 },
-        signatureAlg: cert.siginfo.algorithmOid, version: cert.version + 1,
+        publicKey: { type: keyType, bits: keyBits },
+        signatureAlg: sigOid, version: cert.version + 1,
       });
       setError('');
     } catch (e) { setError(String(e)); setInfo(null); }
