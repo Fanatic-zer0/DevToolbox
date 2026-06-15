@@ -216,7 +216,7 @@ const tools: ToolDefinition[] = [
     id: 'helm-values', title: 'Helm Values Helper', description: 'Inspect and diff Helm values.yaml files — flatten keys, inspect types, compare releases',
     category: 'devops', keywords: ['helm', 'values', 'yaml', 'kubernetes', 'k8s', 'chart', 'diff', 'inspect'],
     inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
-    load: () => import('./devops/helm-values/HelmValuesToool'),
+    load: () => import('./devops/helm-values/HelmValuesTool'),
   },
   {
     id: 'k8s-validator', title: 'K8s Manifest Validator', description: 'Lint Kubernetes YAML manifests for required fields and best practices',
@@ -264,12 +264,7 @@ const tools: ToolDefinition[] = [
     inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
     load: () => import('./networking/dns-lookup/DnsLookupTool'),
   },
-  {
-    id: 'http-headers', title: 'HTTP Header Inspector', description: 'Fetch and inspect HTTP response headers — security grading, cache, CORS, and server info',
-    category: 'networking', keywords: ['http', 'headers', 'inspect', 'security', 'hsts', 'csp', 'cors', 'cache', 'response'],
-    inputKind: 'text', outputKind: 'mixed', defaultOptions: {},
-    load: () => import('./networking/http-headers/HttpHeadersTool'),
-  },
+
   {
     id: 'port-reference', title: 'Port Reference', description: 'Well-known and commonly used TCP/UDP port numbers — search by port number or service name',
     category: 'networking', keywords: ['port', 'tcp', 'udp', 'service', 'well-known', 'reference', 'database', 'lookup'],

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, CheckCircle, XCircle, RefreshCw, Plus, Trash2 } from 'lucide-react';
+import { Play, CheckCircle, XCircle, RefreshCw, Plus, Trash2, Upload } from 'lucide-react';
 
 interface TestTarget {
   id: string;
@@ -14,6 +14,7 @@ interface TestResult {
   status: 'pending' | 'open' | 'closed' | 'timeout' | 'error';
   rtt: number | null;
   error?: string;
+  resolved?: string; // IP address if resolved
 }
 
 // Strategy: attempt an HTTP fetch to the host:port with a timeout.
@@ -87,6 +88,8 @@ export default function TcpTestTool() {
   const [results, setResults] = useState<TestResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [timeout, setTimeoutMs] = useState(5000);
+  const [bulkInput, setBulkInput] = useState('');
+  const [showBulkImport, setShowBulkImport] = useState(false);
 
   function addTarget() {
     setTargets((prev) => [...prev, { id: genId(), host: '', port: '' }]);
@@ -98,6 +101,41 @@ export default function TcpTestTool() {
 
   function updateTarget(id: string, field: 'host' | 'port', value: string) {
     setTargets((prev) => prev.map((t) => t.id === id ? { ...t, [field]: value } : t));
+  }
+
+  function parseBulkInput() {
+    const lines = bulkInput.trim().split('\n').filter(l => l.trim());
+    const newTargets: TestTarget[] = [];
+    
+    lines.forEach((line) => {
+      line = line.trim();
+      let host = '';
+      let port = '';
+      
+      if (line.includes(':') && !line.startsWith('[')) {
+        const idx = line.lastIndexOf(':');
+        host = line.slice(0, idx).trim();
+        port = line.slice(idx + 1).trim();
+      } else if (line.includes(' ')) {
+        const parts = line.split(/\s+/);
+        host = parts[0].trim();
+        port = parts[parts.length - 1].trim();
+      } else {
+        return;
+      }
+      
+      if (host && port && !isNaN(parseInt(port))) {
+        if (!targets.find(t => t.host === host && t.port === port)) {
+          newTargets.push({ id: genId(), host, port });
+        }
+      }
+    });
+    
+    if (newTargets.length > 0) {
+      setTargets((prev) => [...prev, ...newTargets]);
+      setBulkInput('');
+      setShowBulkImport(false);
+    }
   }
 
   function loadPreset(preset: typeof COMMON_TARGETS[0]) {
@@ -132,15 +170,34 @@ export default function TcpTestTool() {
       <div className="tool-header">
         <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>TCP Connection Tester</h1>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          Test if a host:port is reachable from your machine — replaces <code>nc -zv host port</code> or <code>telnet host port</code>
+          Test if a host:port is reachable — format: <code>github.com:443</code>, supports bulk import
         </p>
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-4 max-w-2xl">
+        {/* Bulk Import */}
+        {showBulkImport && (
+          <div className="rounded-lg p-3 space-y-2" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+            <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Bulk Import Targets</div>
+            <textarea
+              className="input-base font-mono text-xs w-full"
+              rows={4}
+              value={bulkInput}
+              onChange={(e) => setBulkInput(e.target.value)}
+              placeholder="github.com:443&#10;github.com:22&#10;8.8.8.8 53&#10;smtp.gmail.com, 587"
+              style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+            />
+            <div className="flex gap-2">
+              <button className="btn btn-sm btn-primary flex-1" onClick={parseBulkInput}>Import</button>
+              <button className="btn btn-sm btn-ghost flex-1" onClick={() => setShowBulkImport(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
         {/* Targets */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Hosts to test</label>
+            <label className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Connection Targets</label>
             <div className="flex items-center gap-2">
               <label className="text-xs" style={{ color: 'var(--text-muted)' }}>Timeout (ms)</label>
               <input
@@ -156,13 +213,15 @@ export default function TcpTestTool() {
           {targets.map((t) => (
             <div key={t.id} className="flex gap-2">
               <input
-                className="input-base flex-1 font-mono text-sm"
+                className="input-base font-mono text-sm"
+                style={{ flex: '1 1 0', minWidth: 0 }}
                 value={t.host}
                 onChange={(e) => updateTarget(t.id, 'host', e.target.value)}
-                placeholder="hostname or IP"
+                placeholder="hostname or IP (e.g. github.com)"
               />
               <input
-                className="input-base w-24 font-mono text-sm text-center"
+                className="input-base font-mono text-sm text-center"
+                style={{ width: '80px', flexShrink: 0 }}
                 value={t.port}
                 onChange={(e) => updateTarget(t.id, 'port', e.target.value)}
                 placeholder="port"
@@ -176,9 +235,14 @@ export default function TcpTestTool() {
             </div>
           ))}
 
-          <button className="btn btn-ghost btn-sm flex items-center gap-1.5" onClick={addTarget}>
-            <Plus size={12} /> Add host
-          </button>
+          <div className="flex gap-1.5">
+            <button className="btn btn-ghost btn-sm flex items-center gap-1.5 flex-1" onClick={addTarget}>
+              <Plus size={12} /> Add target
+            </button>
+            <button className="btn btn-ghost btn-sm flex items-center gap-1.5 flex-1" onClick={() => setShowBulkImport(!showBulkImport)}>
+              <Upload size={12} /> Bulk import
+            </button>
+          </div>
         </div>
 
         {/* Quick presets */}
@@ -233,10 +297,10 @@ export default function TcpTestTool() {
         )}
 
         {/* Note */}
-        <div className="rounded p-3 text-xs" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-          <strong style={{ color: 'var(--text-secondary)' }}>Note:</strong> Uses HTTP requests to test reachability. HTTP/HTTPS ports give the most reliable results. 
-          Non-HTTP ports (like 22, 25, 5432) may show as "open" if the server responds or "error" with a protocol mismatch — both indicate the port is reachable.
-          True ICMP/TCP connection testing requires native access (see your terminal: <code className="font-mono">nc -zv host port</code>).
+        <div className="rounded p-3 text-xs space-y-1" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+          <div><strong style={{ color: 'var(--text-secondary)' }}>Format:</strong> Enter as <code className="font-mono">hostname:port</code> (e.g., <code className="font-mono">github.com:443</code>)</div>
+          <div><strong style={{ color: 'var(--text-secondary)' }}>Bulk import:</strong> Paste multiple targets, one per line: <code className="font-mono">host1:port1</code>, <code className="font-mono">host2 port2</code>, etc.</div>
+          <div><strong style={{ color: 'var(--text-secondary)' }}>Note:</strong> Uses HTTP requests. HTTP/HTTPS ports give reliable results. Non-HTTP ports (22, 25, 5432) show "open" or "error" — both mean reachable.</div>
         </div>
       </div>
     </div>
