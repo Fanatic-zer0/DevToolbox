@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "eslint . --ext ts,tsx",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build:dmg": "tauri build && mkdir -p /Users/dheeryad/Releases && find src-tauri/target/release/bundle/dmg -name '*.dmg' -exec cp {} /Users/dheeryad/Releases/ \\;"
   },
   "dependencies": {
     "@codemirror/commands": "^6.6.0",

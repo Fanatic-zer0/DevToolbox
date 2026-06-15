@@ -1,6 +1,37 @@
 import { useState } from 'react';
 import * as openpgp from 'openpgp';
+import { Terminal, Copy } from 'lucide-react';
 import { usePgpKeyStore, type StoredPgpKey } from '../../../store';
+
+function CliBlock({ commands }: { commands: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { await navigator.clipboard.writeText(commands); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+      <button
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors"
+        style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+        onClick={() => setOpen(!open)}
+      >
+        <span className="flex items-center gap-2"><Terminal size={12} />CLI equivalent (gpg)</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{open ? '▲ hide' : '▼ show'}</span>
+      </button>
+      {open && (
+        <div className="relative" style={{ background: '#0d1117' }}>
+          <button
+            className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded text-xs"
+            style={{ background: 'rgba(255,255,255,0.08)', color: '#8b949e' }}
+            onClick={copy}
+          >
+            <Copy size={10} />{copied ? 'Copied!' : 'Copy'}
+          </button>
+          <pre className="p-3 pr-16 text-xs font-mono overflow-x-auto" style={{ color: '#e6edf3', margin: 0, lineHeight: 1.6 }}>{commands}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Key Manager ─────────────────────────────────────────────────────────────
 function KeyManager() {
@@ -135,6 +166,11 @@ function KeyGenerationForm() {
       {output && (
         <textarea className="input-base font-mono text-xs resize-none" rows={10} readOnly value={output} />
       )}
+      <CliBlock commands={(() => {
+        const n = name.trim() || 'Your Name';
+        const e = email.trim() || 'you@example.com';
+        return `# Interactive (recommended):\ngpg --full-gen-key\n\n# Or batch mode (non-interactive):\ngpg --batch --gen-key <<'EOF'\nKey-Type: RSA\nKey-Length: ${bits}\nName-Real: ${n}\nName-Email: ${e}\nName-Comment:\n${passphrase ? 'Passphrase: your-passphrase' : '%no-protection'}\n%commit\nEOF\n\n# Export keys after generation:\ngpg --export --armor "${e}" > public.asc\ngpg --export-secret-keys --armor "${e}" > private.asc`;
+      })()} />
     </div>
   );
 }
@@ -182,6 +218,14 @@ function EncryptPanel() {
       <button className="btn btn-accent btn-sm" onClick={encrypt} disabled={!message || !selectedKeys.length}>Encrypt</button>
       {error && <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>}
       {output && <textarea className="input-base font-mono text-xs resize-none" rows={8} readOnly value={output} />}
+      <CliBlock commands={(() => {
+        const recipients = keys
+          .filter((k) => selectedKeys.includes(k.id))
+          .map((k) => { const m = (k.userIds[0] ?? '').match(/<(.+)>/); return m ? m[1] : (k.userIds[0] ?? k.fingerprint.slice(-8)); });
+        const recipientFlags = (recipients.length > 0 ? recipients : ['recipient@example.com'])
+          .map((r) => `  --recipient "${r}" \\`).join('\n');
+        return `gpg --encrypt \\\n${recipientFlags}\n  --armor \\\n  --output encrypted.asc \\\n  plaintext.txt`;
+      })()} />
     </div>
   );
 }
@@ -227,6 +271,7 @@ function DecryptPanel() {
       <button className="btn btn-accent btn-sm" onClick={decrypt} disabled={!ciphertext || !selectedKey}>Decrypt</button>
       {error && <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>}
       {output && <textarea className="input-base font-mono resize-none" rows={5} readOnly value={output} />}
+      <CliBlock commands={`gpg --decrypt \\\n  --output decrypted.txt \\\n  encrypted.asc\n\n# Or pipe to stdout:\ngpg --decrypt encrypted.asc`} />
     </div>
   );
 }
@@ -274,6 +319,11 @@ function SignPanel() {
       <button className="btn btn-accent btn-sm" onClick={sign} disabled={!message || !selectedKey}>Sign</button>
       {error && <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>}
       {output && <textarea className="input-base font-mono text-xs resize-none" rows={10} readOnly value={output} />}
+      <CliBlock commands={(() => {
+        const kd = keys.find((k) => k.id === selectedKey);
+        const uid = kd ? ((kd.userIds[0] ?? '').match(/<(.+)>/) || [])[1] ?? kd.userIds[0] ?? 'you@example.com' : 'you@example.com';
+        return `# Clear-sign (message + signature in one file):\ngpg --clearsign \\\n  --local-user "${uid}" \\\n  message.txt\n\n# Detached signature (separate .sig file):\ngpg --detach-sign --armor \\\n  --local-user "${uid}" \\\n  message.txt`;
+      })()} />
     </div>
   );
 }
@@ -320,6 +370,7 @@ function VerifyPanel() {
           {result.message}
         </div>
       )}
+      <CliBlock commands={`# Verify a clear-signed or inline-signed message:\ngpg --verify signed_message.asc\n\n# Verify with detached signature:\ngpg --verify signature.asc original_file.txt\n\n# Show signer details:\ngpg --verify --verbose signed_message.asc`} />
     </div>
   );
 }
